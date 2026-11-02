@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Odoo 转型 90 天打卡表</title>
+<style>
+  :root{
+    --bg:#f6f7f9; --card:#ffffff; --border:#e5e8ec; --text:#1f2933; --muted:#6b7480;
+    --accent:#2563eb; --accent-soft:#e8effd; --day:#0e9f6e; --day-soft:#e6f6f0;
+    --night:#7c3aed; --night-soft:#f1ebfd; --done:#94a3b8; --warn:#d97706;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:"Segoe UI","Microsoft YaHei",system-ui,sans-serif;background:var(--bg);color:var(--text);padding:24px 16px 80px}
+  .wrap{max-width:860px;margin:0 auto}
+  header.top{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px 24px;margin-bottom:18px}
+  h1{font-size:20px;margin-bottom:4px}
+  .sub{color:var(--muted);font-size:13px;margin-bottom:14px}
+  .stats{display:flex;gap:12px;flex-wrap:wrap}
+  .stat{flex:1;min-width:120px;background:var(--bg);border-radius:10px;padding:10px 14px;text-align:center}
+  .stat .num{font-size:22px;font-weight:700;color:var(--accent)}
+  .stat .lab{font-size:12px;color:var(--muted);margin-top:2px}
+  .bar{height:8px;background:var(--border);border-radius:4px;margin-top:14px;overflow:hidden}
+  .bar>i{display:block;height:100%;background:linear-gradient(90deg,#2563eb,#0e9f6e);width:0%;transition:width .3s}
+  .phase-tag{display:inline-block;font-size:11px;padding:2px 8px;border-radius:999px;margin-bottom:8px;font-weight:600}
+  .p1{background:#e8effd;color:#2563eb}.p2{background:#fdf1e0;color:#d97706}.p3{background:#e6f6f0;color:#0e9f6e}
+  .week{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:18px 22px;margin-bottom:14px}
+  .week h2{font-size:16px;margin-bottom:2px}
+  .week .goal{font-size:13px;color:var(--muted);margin-bottom:12px}
+  .day{border-top:1px dashed var(--border);padding:12px 0}
+  .day-head{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+  .day-head .d{font-weight:600;font-size:14px}
+  .day-head .rate{font-size:12px;color:var(--muted)}
+  .day-head .allbtn{margin-left:auto;font-size:12px;color:var(--accent);background:var(--accent-soft);border:none;border-radius:6px;padding:3px 10px;cursor:pointer}
+  .day-head .allbtn.off{background:var(--bg);color:var(--muted)}
+  .task{display:flex;align-items:flex-start;gap:8px;padding:5px 8px;border-radius:8px;cursor:pointer;transition:background .15s}
+  .task:hover{background:var(--bg)}
+  .task input{margin-top:3px;accent-color:var(--accent);width:15px;height:15px;flex-shrink:0}
+  .slot{font-size:11px;padding:1px 7px;border-radius:5px;flex-shrink:0;margin-top:1px;font-weight:600}
+  .slot.D{background:var(--day-soft);color:var(--day)}
+  .slot.N{background:var(--night-soft);color:var(--night)}
+  .task .t{font-size:14px;line-height:1.5}
+  .task.done .t{color:var(--done);text-decoration:line-through}
+  .toolbar{position:fixed;bottom:0;left:0;right:0;background:var(--card);border-top:1px solid var(--border);padding:10px 16px;display:flex;gap:10px;justify-content:center}
+  .toolbar button{font-size:13px;padding:7px 16px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--text);cursor:pointer}
+  .toolbar button:hover{background:var(--bg)}
+  .today-btn{position:fixed;right:20px;bottom:60px;background:var(--accent)!important;color:#fff!important;border:none!important;border-radius:999px!important;padding:12px 20px!important;font-size:14px!important;box-shadow:0 4px 14px rgba(37,99,235,.35)}
+  .holiday .t{color:var(--warn);font-weight:600}
+  .note-box{width:100%;border:1px solid var(--border);border-radius:8px;padding:8px 10px;font-size:13px;font-family:inherit;resize:vertical;min-height:34px;margin-top:6px;background:var(--bg);color:var(--text)}
+  .note-box:focus{outline:none;border-color:var(--accent);background:#fff}
+  .report-btn{font-size:12px;color:#fff;background:var(--accent);border:none;border-radius:6px;padding:3px 10px;cursor:pointer;margin-left:8px}
+  .report-btn:hover{opacity:.85}
+  .note-label{font-size:12px;color:var(--muted);margin-top:8px;display:flex;align-items:center}
+  .note{font-size:12px;color:var(--muted);background:var(--bg);border-radius:8px;padding:8px 12px;margin-bottom:12px;line-height:1.6}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1>🎯 Odoo 转型 90 天打卡表</h1>
+    <div class="sub">2026-11-02 ~ 2027-01-29 · 只排工作日 · 绿=白天碎片时间 紫=晚上核心时间</div>
+    <div class="stats">
+      <div class="stat"><div class="num" id="s-total">0</div><div class="lab">总任务</div></div>
+      <div class="stat"><div class="num" id="s-done">0</div><div class="lab">已完成</div></div>
+      <div class="stat"><div class="num" id="s-pct">0%</div><div class="lab">完成率</div></div>
+      <div class="stat"><div class="num" id="s-streak">0</div><div class="lab">连续打卡(天)</div></div>
+      <div class="stat"><div class="num" id="s-week">-</div><div class="lab">本周</div></div>
+    </div>
+    <div class="bar"><i id="bar"></i></div>
+  </header>
+  <div id="app"></div>
+</div>
+<button class="today-btn" onclick="scrollToday()">📍 回到今天</button>
+<div class="toolbar">
+  <button onclick="exportData()">⬇ 导出数据</button>
+  <button onclick="document.getElementById('imp').click()">⬆ 导入数据</button>
+  <button onclick="resetData()">🗑 清空打卡记录</button>
+  <input type="file" id="imp" accept=".json" style="display:none" onchange="importData(this)">
+</div>
+<script>
+// slot: D=白天碎片 N=晚上核心 H=假日缓冲
+const PLAN=[
+{p:1,pt:"第一阶段 · 地基",title:"第 1 周 · 搭环境 + 重启英语",goal:"目标：三个仓库就位、PG 练习环境跑通、英语输入启动",range:"11/02-11/06",days:[
+ {d:"周一 11/02",t:[["建三个仓库/目录：odoo-mcp-server、odoo-perf-notes、english-log","N"],["完善个人 GitHub Profile（头像/简介/置顶）","D"]]},
+ {d:"周二 11/03",t:[["收藏 Odoo 官方英文文档，开始读 ORM 章节开头（20min）","D"],["Docker 起本地 PostgreSQL 练习环境","N"]]},
+ {d:"周三 11/04",t:[["英文文档阅读 20min，生词记入 english-log","D"],["学 EXPLAIN (ANALYZE, BUFFERS) 入门（上）","N"]]},
+ {d:"周四 11/05",t:[["英文文档阅读 20min","D"],["学 EXPLAIN 进阶（下）+ 整理学习笔记","N"]]},
+ {d:"周五 11/06",t:[["本周生词复习，整理进 english-log","D"],["缓冲日：补欠账或写周记（没欠账就休息）","N"]]}]},
+{p:1,pt:"第一阶段 · 地基",title:"第 2 周 · PG 执行计划入门",goal:"目标：抓到老项目第 1 个慢 SQL，完成分析",range:"11/09-11/13",days:[
+ {d:"周一 11/09",t:[["读 Odoo 英文文档：ORM _search 机制","D"],["从老项目抓出 1 个最慢接口的慢 SQL","N"]]},
+ {d:"周二 11/10",t:[["英文文档阅读 20min","D"],["用 EXPLAIN 分析该慢 SQL，定位瓶颈","N"]]},
+ {d:"周三 11/11",t:[["英文文档阅读 20min","D"],["写第 1 篇优化笔记（中文 + 英文摘要 3-5 句）","N"]]},
+ {d:"周四 11/12",t:[["英文文档阅读 20min","D"],["设计优化方案：加索引 / 改写 domain / 消 N+1","N"]]},
+ {d:"周五 11/13",t:[["生词复习","D"],["缓冲日：补欠账或周记","N"]]}]},
+{p:1,pt:"第一阶段 · 地基",title:"第 3 周 · 首个优化落地 + MCP 骨架",goal:"目标：优化 1 落地有数据；MCP 项目起骨架",range:"11/16-11/20",days:[
+ {d:"周一 11/16",t:[["英文文档阅读 20min","D"],["读 ORM 源码：domain 转 SQL 的小函数（1 个即可）","N"]]},
+ {d:"周二 11/17",t:[["英文文档阅读 20min","D"],["实施优化 1：消 N+1 / 加索引","N"]]},
+ {d:"周三 11/18",t:[["英文文档阅读 20min","D"],["优化 1 验证，记录优化前后对比数据","N"]]},
+ {d:"周四 11/19",t:[["英文文档阅读 20min","D"],["MCP 骨架：JSON-RPC 连接 Odoo 的 client 封装","N"]]},
+ {d:"周五 11/20",t:[["给 MCP 项目写第一版英文 README（100 词即可）","D"],["缓冲日：补欠账或周记","N"]]}]},
+{p:1,pt:"第一阶段 · 地基",title:"第 4 周 · 月度验收 ①",goal:"目标：优化 2 个接口；MCP demo 能查任意模型",range:"11/23-11/27",days:[
+ {d:"周一 11/23",t:[["英文文档阅读 20min","D"],["挑选并分析第 2 个慢接口","N"]]},
+ {d:"周二 11/24",t:[["英文文档阅读 20min","D"],["实施优化 2","N"]]},
+ {d:"周三 11/25",t:[["英文文档阅读 20min","D"],["优化 2 验证 + 写第 2 篇笔记","N"]]},
+ {d:"周四 11/26",t:[["英文文档阅读 20min","D"],["MCP 跑通第一个工具：execute_kw 查模型记录","N"]]},
+ {d:"周五 11/27",t:[["月度自查：两篇笔记+demo+英文README ✓","D"],["缓冲日 + 月度复盘","N"]]}]},
+{p:2,pt:"第二阶段 · 作品",title:"第 5 周 · MCP 协议与工具设计",goal:"目标：吃透 MCP 概念，工具集定稿",range:"11/30-12/04",days:[
+ {d:"周一 11/30",t:[["读 MCP 官方文档：tools/resources/prompts 概念","D"],["MCP 官方 Python SDK 上手","N"]]},
+ {d:"周二 12/01",t:[["英文文档阅读 20min","D"],["设计工具集：search_read / create_record / get_model_fields","N"]]},
+ {d:"周三 12/02",t:[["英文文档阅读 20min","D"],["实现工具 1：search_read","N"]]},
+ {d:"周四 12/03",t:[["英文文档阅读 20min","D"],["实现工具 2：get_model_fields","N"]]},
+ {d:"周五 12/04",t:[["读一个同类开源项目 README，摘抄英文好句","D"],["缓冲日：补欠账或周记","N"]]}]},
+{p:2,pt:"第二阶段 · 作品",title:"第 6 周 · MCP 核心开发",goal:"目标：3-4 个工具完成，测试跑通，README 完整",range:"12/07-12/11",days:[
+ {d:"周一 12/07",t:[["英文文档阅读 20min","D"],["实现工具 3：create_record + 只读/读写权限开关","N"]]},
+ {d:"周二 12/08",t:[["英文文档阅读 20min","D"],["错误处理与安全设计（重点，写进代码注释）","N"]]},
+ {d:"周三 12/09",t:[["英文文档阅读 20min","D"],["本地 Odoo 实例跑通全部工具测试","N"]]},
+ {d:"周四 12/10",t:[["英文文档阅读 20min","D"],["README 完善：安装/配置/演示 GIF","N"]]},
+ {d:"周五 12/11",t:[["生词复习 + 好句摘抄","D"],["缓冲日：补欠账或周记","N"]]}]},
+{p:2,pt:"第二阶段 · 作品",title:"第 7 周 · 开源发布 + 方案设计",goal:"目标：MCP 正式开源；新项目方案文档定稿",range:"12/14-12/18",days:[
+ {d:"周一 12/14",t:[["准备发布文案（中文+英文各一份）","D"],["开源发布：LICENSE / CHANGELOG / 发帖","N"]]},
+ {d:"周二 12/15",t:[["英文文档阅读 20min","D"],["在新项目里主动认领一个模块的方案设计","N"]]},
+ {d:"周三 12/16",t:[["英文文档阅读 20min","D"],["方案文档：模块拆分 + standard/custom 取舍理由","N"]]},
+ {d:"周四 12/17",t:[["英文文档阅读 20min","D"],["方案文档：风险评估 + 定稿","N"]]},
+ {d:"周五 12/18",t:[["在 Odoo Discourse 回答 1 个英文问题（AI 起草自改）","D"],["缓冲日：补欠账或周记","N"]]}]},
+{p:2,pt:"第二阶段 · 作品",title:"第 8 周 · 月度验收 ②",goal:"目标：方案评审通过；MCP 收到真实反馈",range:"12/21-12/25",days:[
+ {d:"周一 12/21",t:[["英文文档阅读 20min","D"],["吸收评审意见，修改方案文档","N"]]},
+ {d:"周二 12/22",t:[["英文文档阅读 20min","D"],["方案评审通过并归档（向上走的实物证据 ✓）","N"]]},
+ {d:"周三 12/23",t:[["英文文档阅读 20min","D"],["收集 MCP 使用反馈，列出改进项","N"]]},
+ {d:"周四 12/24",t:[["英文文档阅读 20min","D"],["MCP 迭代修复","N"]]},
+ {d:"周五 12/25",t:[["月度自查","D"],["缓冲日 + 月度复盘","N"]]}]},
+{p:3,pt:"第三阶段 · 变现准备",title:"第 9 周 · AI 场景选型 + PoC",goal:"目标：确定 AI 模块场景（发票识别 / NL 查报表），PoC 验证",range:"12/28-01/01",days:[
+ {d:"周一 12/28",t:[["调研两个场景：发票识别入账 vs 自然语言查报表","D"],["结合公司业务确定场景 A 或 B","N"]]},
+ {d:"周二 12/29",t:[["英文文档阅读 20min","D"],["场景技术调研：LLM API 选型","N"]]},
+ {d:"周三 12/30",t:[["英文文档阅读 20min","D"],["PoC：字段提取/查询生成最小验证","N"]]},
+ {d:"周四 12/31",t:[["英文文档阅读 20min","D"],["PoC 准确率记录，形成结论","N"]]},
+ {d:"周五 01/01",holiday:1,t:[["元旦假日 · 家庭缓冲日，无任务 🎉","H"]]}]},
+{p:3,pt:"第三阶段 · 变现准备",title:"第 10 周 · AI 模块开发 Ⅰ",goal:"目标：模块骨架 + LLM 输出校验兜底",range:"01/04-01/08",days:[
+ {d:"周一 01/04",t:[["英文文档阅读 20min","D"],["AI 模块骨架：models / views","N"]]},
+ {d:"周二 01/05",t:[["英文文档阅读 20min","D"],["Wizard 与交互流程","N"]]},
+ {d:"周三 01/06",t:[["英文文档阅读 20min","D"],["LLM 输出校验与兜底（重点！体现 review AI 的能力）","N"]]},
+ {d:"周四 01/07",t:[["英文文档阅读 20min","D"],["权限组与安全规则","N"]]},
+ {d:"周五 01/08",t:[["生词复习","D"],["缓冲日：补欠账或周记","N"]]}]},
+{p:3,pt:"第三阶段 · 变现准备",title:"第 11 周 · AI 模块开发 Ⅱ",goal:"目标：模块联调完成、真实数据验证",range:"01/11-01/15",days:[
+ {d:"周一 01/11",t:[["英文文档阅读 20min","D"],["模块联调测试","N"]]},
+ {d:"周二 01/12",t:[["英文文档阅读 20min","D"],["用真实业务数据验证效果","N"]]},
+ {d:"周三 01/13",t:[["英文文档阅读 20min","D"],["修复问题 + 性能优化","N"]]},
+ {d:"周四 01/14",t:[["英文文档阅读 20min","D"],["UI 文案、错误提示全部英文（顺手进作品集）","N"]]},
+ {d:"周五 01/15",t:[["生词复习","D"],["缓冲日：补欠账或周记","N"]]}]},
+{p:3,pt:"第三阶段 · 变现准备",title:"第 12 周 · 求职材料打磨",goal:"目标：中英简历 + LinkedIn + 演示脚本就绪",range:"01/18-01/22",days:[
+ {d:"周一 01/18",t:[["英文文档阅读 20min","D"],["简历重写：性能优化(数字) + 开源 MCP + AI 模块","N"]]},
+ {d:"周二 01/19",t:[["英文文档阅读 20min","D"],["英文简历产出 + LinkedIn 资料更新","N"]]},
+ {d:"周三 01/20",t:[["英文文档阅读 20min","D"],["BOSS直聘标注接受远程；研究 10 个目标岗位","N"]]},
+ {d:"周四 01/21",t:[["英文文档阅读 20min","D"],["写 10 分钟作品演示脚本（三个作品各 3 分钟）","N"]]},
+ {d:"周五 01/22",t:[["英文文档阅读 20min","D"],["缓冲日：补欠账或周记","N"]]}]},
+{p:3,pt:"第三阶段 · 变现准备",title:"第 13 周 · 试水 + 总结",goal:"目标：完成投递试水 + 90 天总复盘",range:"01/25-01/29",days:[
+ {d:"周一 01/25",t:[["英文文档阅读 20min","D"],["投递远程岗位 3-5 个","N"]]},
+ {d:"周二 01/26",t:[["英文文档阅读 20min","D"],["Upwork / 自由职业平台账号与 profile 完善（英文）","N"]]},
+ {d:"周三 01/27",t:[["英文文档阅读 20min","D"],["再投 3-5 个 + 记录反馈","N"]]},
+ {d:"周四 01/28",t:[["英文文档阅读 20min","D"],["90 天总复盘：三个作品完成度、时间可持续性","N"]]},
+ {d:"周五 01/29",t:[["下阶段计划草案（正式兼职? 英语进阶? 日语?）","D"],["90 天达成，好好庆祝 🎉","N"]]}]}
+];
+
+const KEY="odoo90_checkin_v1";
+let state=JSON.parse(localStorage.getItem(KEY)||"{}");
+function save(){localStorage.setItem(KEY,JSON.stringify(state))}
+function tid(w,d,t){return `w${w}d${d}t${t}`}
+
+function render(){
+  const app=document.getElementById("app");
+  let html="",total=0,done=0;
+  PLAN.forEach((wk,wi)=>{
+    html+=`<div class="week" id="week${wi}"><span class="phase-tag p${wk.p}">${wk.pt}</span><h2>${wk.title}</h2><div class="goal">${wk.goal} · ${wk.range}</div>`;
+    wk.days.forEach((day,di)=>{
+      const isHol=!!day.holiday;
+      let dTotal=day.t.length, dDone=0;
+      day.t.forEach((_,ti)=>{total++;if(state[tid(wi,di,ti)]){done++;dDone++}});
+      const rate=`${dDone}/${dTotal}`;
+      html+=`<div class="day${isHol?' holiday':''}" id="d${wi}-${di}"><div class="day-head"><span class="d">${day.d}</span><span class="rate">${isHol?'':rate}</span>${isHol?'':`<button class="allbtn ${dDone===dTotal?'off':''}" onclick="toggleDay(${wi},${di},this)">全选</button>`}</div>`;
+      day.t.forEach((tk,ti)=>{
+        const [txt,slot]=tk, ck=!!state[tid(wi,di,ti)];
+        html+=`<div class="task${ck?' done':''}" onclick="toggle(${wi},${di},${ti})"><input type="checkbox" ${ck?'checked':''} onclick="event.stopPropagation();toggle(${wi},${di},${ti})"><span class="slot ${slot}">${slot==='D'?'白天':slot==='N'?'晚上':'休'}</span><span class="t">${txt}</span></div>`;
+      });
+      if(!isHol){
+        const noteVal=(state[nid(wi,di)]||"").replace(/"/g,"&quot;").replace(/</g,"&lt;");
+        html+=`<div class="note-label">📝 日报备注<button class="report-btn" onclick="copyReport(${wi},${di})">📋 复制日报</button></div>
+        <textarea class="note-box" placeholder="今天具体做了什么、卡在哪、有什么发现……（自动保存，随 checkin.json 同步）" oninput="saveNote(${wi},${di},this.value)">${noteVal}</textarea>`;
+      }
+      html+=`</div>`;
+    });
+    html+=`</div>`;
+  });
+  app.innerHTML=html;
+  // stats
+  document.getElementById("s-total").textContent=total;
+  document.getElementById("s-done").textContent=done;
+  document.getElementById("s-pct").textContent=Math.round(done/total*100)+"%";
+  document.getElementById("bar").style.width=(done/total*100)+"%";
+  document.getElementById("s-streak").textContent=calcStreak();
+  // current week
+  const now=new Date();const start=new Date(2026,10,2);
+  const weekNo=Math.min(13,Math.max(1,Math.floor((now-start)/604800000/1)+1));
+  document.getElementById("s-week").textContent=weekNo+"/13 周";
+}
+function toggle(w,d,t){state[tid(w,d,t)]=!state[tid(w,d,t)];if(!state[tid(w,d,t)])delete state[tid(w,d,t)];save();render()}
+function toggleDay(w,di,btn){
+  const day=PLAN[w].days[di];const allDone=day.t.every((_,ti)=>state[tid(w,di,ti)]);
+  day.t.forEach((_,ti)=>{if(allDone)delete state[tid(w,di,ti)];else state[tid(w,di,ti)]=true});
+  save();render();
+}
+function nid(w,d){return `w${w}d${d}note`}
+function saveNote(w,d,val){state[nid(w,d)]=val;save()} // 只存不渲染，避免打字时丢焦点
+function copyReport(w,d){
+  const wk=PLAN[w],day=wk.days[d];
+  const lines=[`【90天打卡日报】${day.d} · ${wk.title}`,""];
+  const doneList=day.t.filter((_,ti)=>state[tid(w,d,ti)]);
+  const undoneList=day.t.filter((_,ti)=>!state[tid(w,d,ti)]);
+  if(doneList.length){lines.push("✅ 已完成：");doneList.forEach(([t,s])=>lines.push(`- [${s==='D'?'白天':'晚上'}] ${t}`))}
+  if(undoneList.length){lines.push("⬜ 未完成：");undoneList.forEach(([t,s])=>lines.push(`- [${s==='D'?'白天':'晚上'}] ${t}`))}
+  const note=state[nid(w,d)]||"";
+  if(note){lines.push("","📝 备注：",note)}
+  const txt=lines.join("\n");
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(txt).then(()=>alert("日报已复制，可直接粘贴给我")).catch(()=>fallbackCopy(txt));
+  }else fallbackCopy(txt);
+}
+function fallbackCopy(txt){
+  const ta=document.createElement("textarea");ta.value=txt;document.body.appendChild(ta);
+  ta.select();document.execCommand("copy");document.body.removeChild(ta);alert("日报已复制，可直接粘贴给我");
+}
+function calcStreak(){ // 从 11/02 起算，工作日当天全部完成记 1 天，周末跳过
+  const start=new Date(2026,10,2);let streak=0;const cur=new Date();
+  for(let dt=new Date(start);dt<=cur;dt.setDate(dt.getDate()+1)){
+    const wd=dt.getDay();if(wd===0||wd===6)continue;
+    const wIdx=Math.floor((dt-start)/(7*86400000));
+    if(wIdx>=PLAN.length)continue;
+    const wk=PLAN[wIdx];
+    const dayIdx=[1,2,3,4,5].indexOf(wd);
+    if(!wk.days[dayIdx])continue;
+    const day=wk.days[dayIdx];
+    if(day.t.length&&day.t.every((_,ti)=>state[tid(wIdx,dayIdx,ti)]))streak++;
+  }
+  return streak;
+}
+function scrollToday(){
+  const now=new Date(),start=new Date(2026,10,2);
+  const wIdx=Math.floor((now-start)/(7*86400000));
+  if(wIdx<0||wIdx>=PLAN.length)return alert("今天不在 90 天范围内（11/02 前）");
+  const el=document.getElementById("week"+wIdx)||document.getElementById("week0");
+  el.scrollIntoView({behavior:"smooth"});
+}
+function exportData(){
+  const blob=new Blob([JSON.stringify(state,null,2)],{type:"application/json"});
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);
+  a.download="checkin.json";a.click();
+}
+function importData(input){
+  const f=input.files[0];if(!f)return;
+  const r=new FileReader();r.onload=e=>{try{state=JSON.parse(e.target.result);save();render();alert("导入成功")}catch{alert("文件格式不对")}};
+  r.readAsText(f);input.value="";
+}
+function resetData(){if(confirm("确定清空所有打卡记录？此操作不可恢复（建议先导出备份）")){state={};save();render()}}
+render();
+</script>
+</body>
+</html>
